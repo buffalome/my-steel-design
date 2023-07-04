@@ -723,9 +723,10 @@ braced_yy = pn.widgets.Select(name='braced_yy', width=190, options={'No Bracing'
 braced_zz = pn.widgets.Select(name='braced_zz', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, 'Continuous Bracing': 0.01})
 Cb = pn.widgets.FloatInput(name='Cb', start=1.0, step=0.05, value=1.0, width=285)
 x_button = pn.widgets.RadioButtonGroup(name='x-axis', options=['Lc [m]', 'Slenderness MIN'], align = 'center', width=570)
-Mservice_factor = pn.widgets.FloatInput(name='Mservice / Mn_MIN', start=0.0, end=1.0, step=0.05, value=0.5, width=285)
 
-Mminor_ratio = pn.widgets.FloatInput(name='Mry / Mcy', start=0.0, end=1.0, step=0.01, value=0.0, width=570)
+Mservice_factor = pn.widgets.FloatSlider(name='Mservice / Mn_MIN', start=0.0, end=1.0, step=0.01, value=0.5, width=285)
+
+Mminor_ratio = pn.widgets.FloatSlider(name='Mry / Mcy', start=0.0, end=1.0, step=0.01, value=0.0, width=570)
 
 section_table = pn.widgets.DataFrame(width=380, text_align='left', row_height=25)
 classification_table = pn.widgets.DataFrame(width=380, text_align='left', row_height=25)
