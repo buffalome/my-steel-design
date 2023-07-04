@@ -296,8 +296,7 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
             mode = 'lines',
             line = dict(color='firebrick', width=3,),
             hovertemplate =
-            "Pn min LB: %{y:.2f} ton" +
-            "<extra></extra>",
+            "Pn min LB: %{y:.2f} ton<extra></extra>",
         )
     ),
     fig.add_trace(
@@ -308,8 +307,7 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
             mode = 'lines',
             line = dict(color='#FF6692',width=3, dash = 'dash'),
             hovertemplate =
-            "Pn FB: %{y:.2f} ton" +
-            "<extra></extra>",
+            "Pn FB: %{y:.2f} ton<extra></extra>",
         )
     ),
     fig.add_trace(
@@ -320,8 +318,7 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
             mode = 'lines',
             line = dict(color='#17BECF',width=3, dash = 'dash'),
             hovertemplate =
-            "Pn FTB: %{y:.2f} ton" +
-            "<extra></extra>",
+            "Pn FTB: %{y:.2f} ton<extra></extra>",
         )
     ),
     fig.add_trace(
@@ -342,26 +339,19 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
         yaxis_title = 'Pn [ton]',
         hovermode = 'x',
         showlegend = True,
-        xaxis_showspikes=True,
-        yaxis_showspikes=True,
-        )
+        xaxis_showspikes = True,
+        yaxis_showspikes = True,
+        legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0),
+        margin = dict(t=0, b=0, l=0, r=40),
+        xaxis = dict(fixedrange=True),
+        yaxis = dict(fixedrange=True)
+    )
     
-    fig.update_layout(legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="left",
-        x=0.0
-    ))
-    
-    fig.add_annotation(text=message,
-                       font=dict(size=14,color="black"),
-                       xref="paper", yref="paper",x=0.05, y=0.05, showarrow=False)
-    
-    fig.update_layout(margin_t=0, margin_b=0, margin_l=0, margin_r=40)
-    
-    fig.layout.xaxis.fixedrange = True
-    fig.layout.yaxis.fixedrange = True
+    fig.add_annotation(
+        text = message,
+        font = dict(size=14, color="black"),
+        xref = "paper", yref="paper", x=0.05, y=0.05, showarrow=False
+    )    
     
     return fig
     
@@ -457,9 +447,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='firebrick', width=3,),
             hovertemplate =
-            "Mn min: %{y:.2f} ton-m<br>" +
-            # "Lb: %{x:.2f} m" +
-            "<extra></extra>",
+            "Mn min: %{y:.2f} ton-m<extra></extra>",
         ), secondary_y=False,
     ),
     fig.add_trace(
@@ -470,9 +458,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#17BECF', width=3, dash = 'dash',),
             hovertemplate =
-            "Mn Yielding: %{y:.2f} ton-m<br>" +
-            # "Lb: %{x:.2f} m" +
-            "<extra></extra>",
+            "Mn Yielding: %{y:.2f} ton-m<extra></extra>",
         ), secondary_y=False,
     ),
     fig.add_trace(
@@ -483,9 +469,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#FF6692', width=3, dash = 'dash',),
             hovertemplate =
-            "Mn LTB: %{y:.2f} ton-m<br>" +
-            # "Lb: %{x:.2f} m" +
-            "<extra></extra>",
+            "Mn LTB: %{y:.2f} ton-m<extra></extra>",
         ), secondary_y=False,
     ),
 
@@ -494,9 +478,7 @@ def flexural_plot(df_f):
         op = 1.0
         bo = True
         ho = 'all'
-        hot = "Mn CFLB: %{y:.2f} ton-m<br>"# +
-        # "Lb: %{x:.2f} m" +
-        "<extra></extra>"
+        hot = "Mn CFLB: %{y:.2f} ton-m<extra></extra>"
     else:
         yy = df_f['Mn_Y']
         op = 0.0
@@ -554,8 +536,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
             hovertemplate =
-            "L/120: %{y:.2f} mm<br>" +
-            "<extra></extra>",
+            "L/120: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
@@ -567,8 +548,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
             hovertemplate =
-            "L/180: %{y:.2f} mm<br>" +
-            "<extra></extra>",
+            "L/180: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
@@ -580,8 +560,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
             hovertemplate =
-            "L/240: %{y:.2f} mm<br>" +
-            "<extra></extra>",
+            "L/240: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
@@ -593,8 +572,7 @@ def flexural_plot(df_f):
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
             hovertemplate =
-            "L/360: %{y:.2f} mm<br>" +
-            "<extra></extra>",
+            "L/360: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
@@ -602,13 +580,12 @@ def flexural_plot(df_f):
         go.Scatter(
             x = df_f['L'],
             y = df_f['d_max'],
-            name = 'L/120',
+            name = 'Deflection MAX',
             mode = 'lines',
-            line = dict(color='#5c5eab', width=2),
+            line = dict(color='#5c5eab', width=3),
             hovertemplate =
-            "MAX: %{y:.2f} mm<br>" +
-            "<extra></extra>",
-            showlegend = False,
+            "MAX: %{y:.2f} mm<extra></extra>",
+            showlegend = True,
         ), secondary_y=True,
     ),
     
@@ -617,24 +594,14 @@ def flexural_plot(df_f):
         yaxis_title = 'Mn [ton-m]',
         hovermode = 'x',
         showlegend = True,
-        xaxis_showspikes=True,
-        yaxis_showspikes=True,
-        )
-
-    fig.update_layout(legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="left",
-        x=0.0
-    ))
-    
-    fig.update_yaxes(title_text='Deflection [mm]', fixedrange = True, secondary_y=True, tickmode="sync")
-    
-    fig.update_layout(margin_t=0, margin_b=0, margin_l=0, margin_r=40)
-
-    fig.layout.xaxis.fixedrange = True
-    fig.layout.yaxis.fixedrange = True
+        xaxis_showspikes = True,
+        yaxis_showspikes = True,
+        legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0),
+        margin = dict(t=0, b=0, l=0, r=40),
+        xaxis = dict(fixedrange=True),
+        yaxis = dict(fixedrange=True),
+        yaxis2 = dict(title_text='Deflection [mm]', fixedrange=True, tickmode="sync"),
+    ) 
     
     return fig
 
@@ -685,21 +652,18 @@ def combined_load_plot(Mminor_ratio = 0.0):
         yaxis_title = 'Pr / Pc',
         hovermode = 'x',
         showlegend = False,
-        xaxis_showspikes=True,
-        yaxis_showspikes=True,
-        )
+        xaxis_showspikes = True,
+        yaxis_showspikes = True,
+        margin = dict(t=0, b=0, l=0, r=40),
+        xaxis = dict(range=[0, 1], fixedrange=True),
+        yaxis = dict(range=[0, 1], fixedrange=True)
+    )
     
-    fig.add_annotation(text='Mry / Mcy = '+str(Mminor_ratio),
-                       font=dict(size=14,color="black"),
-                       xref="paper", yref="paper",x=0.05, y=0.05, showarrow=False)
-    
-    fig.update_xaxes(range=[0, 1])
-    fig.update_yaxes(range=[0, 1])
-    
-    fig.update_layout(margin_t=0, margin_b=0, margin_l=0, margin_r=40)
-    
-    fig.layout.xaxis.fixedrange = True
-    fig.layout.yaxis.fixedrange = True
+    fig.add_annotation(
+        text = 'Mry / Mcy = '+str(Mminor_ratio),
+        font = dict(size=14, color="black"),
+        xref = "paper", yref="paper", x=0.05, y=0.05, showarrow=False
+    )
     
     return fig
 
