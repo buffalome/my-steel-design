@@ -1,1 +1,1 @@
-# steel-design-google
+# steel design follow AISC360-16
