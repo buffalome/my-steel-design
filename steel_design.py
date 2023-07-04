@@ -174,7 +174,7 @@ def section_classification(E = E_default, Fy = Fy_default, section = section_def
         
 
 
-def compression_cal(E = E_default, Fy = Fy_default, braced_xx = 1.0, braced_yy = 1.0, braced_zz = 1.0):
+def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_major = 1.0, braced_torsion = 1.0):
     
     comp_data = ['Lc [m]',
                  'Fe_FB [ksc]', 'Fcr_FB [ksc]', 'Pn_FB [ton]',
@@ -218,14 +218,20 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_xx = 1.0, braced_yy =
     c_lambda_rf = df['c_lambda_rf'][0]
 
     # EULER BUCKLING STRESS
-    rx_s = rx / braced_yy
-    ry_s = ry / braced_xx
+    slenderness_minor = braced_minor / ry
+    slenderness_major = braced_major / rx
     
-    message = 'Flexural Buckling in xx direction' if rx_s > ry_s else 'Flexural Buckling in yy direction'
-    
-    r = min(rx_s , ry_s)
-    df_C['Lc [m]'] = slenderness * r / 100
-    Lcz = df_C['Lc [m]'] * braced_zz * 100
+    if slenderness_major > slenderness_minor:
+        message = 'Flexural Buckling around MAJOR axis'
+        braced = braced_major
+        radius_of_gyration = rx
+    else:
+        message = 'Flexural Buckling around MINOR axis'
+        braced = braced_minor
+        radius_of_gyration = ry
+
+    df_C['Lc [m]'] = slenderness * radius_of_gyration / braced / 100
+    Lcz = df_C['Lc [m]'] * braced_torsion * 100
 
     # E3. FLEXURAL BUCKLING OF MEMBERS WITHOUT SLENDER ELEMENTS 
     df_C['Fe_FB [ksc]'] = (np.pi**2)*E/(slenderness**2)
@@ -272,22 +278,34 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_xx = 1.0, braced_yy =
     return df_C, slenderness_TR, message
     
 
-def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
+def compression_plot(df_C, slenderness_TR, message):
     
-    if x_button == 'Slenderness MIN':
-        x_data = df_C['Slenderness']
-        x_limit = slenderness_TR
-        xaxis_title = 'Slenderness MIN, Lc/r'
-    elif x_button == 'Lc [m]':
-        x_data = df_C['Lc [m]']
-        x_limit = df_C.loc[df_C['Slenderness']==slenderness_TR,'Lc [m]'].values[0]
-        xaxis_title = 'Lc [m]'
+    if 'MAJOR' in message:
+        xaxis_title = 'Slenderness MAX, Lc/rx'
+        xaxis2_title = 'Effective Length, Lc = Slenderness MAX * rx [m]'
+    else:
+        xaxis_title = 'Slenderness MAX, Lc/ry'
+        xaxis2_title = 'Effective Length, Lc = Slenderness MAX * ry [m]'
     
-    xx = df_C.loc[df_C['Slenderness']==slenderness_TR,'Lc [m]'].values[0]
-    y_limit = df_C.loc[df_C['Slenderness']==slenderness_TR,'Pn_min_LB [ton]'].values[0]
+    x_data = df_C['Slenderness']
+    x_limit = slenderness_TR
+    xx = df_C.loc[df_C['Slenderness'] == slenderness_TR, 'Lc [m]'].values[0]
+    y_limit = df_C.loc[df_C['Slenderness'] == slenderness_TR, 'Pn_min_LB [ton]'].values[0]
     
     fig = go.Figure()
+    
+    fig.update_layout(xaxis2= {'anchor': 'y', 'overlaying': 'x', 'side': 'top'})
 
+    fig.add_trace(
+        go.Scatter(
+            x = df_C['Lc [m]'],
+            y = df_C['Pn_min_LB [ton]'],
+            hovertemplate = '',
+            opacity = 0.0,
+            showlegend = False,
+            hoverinfo = 'skip',
+        )
+    ),
     fig.add_trace(
         go.Scatter(
             x = x_data,
@@ -295,8 +313,9 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
             name = 'Pn min with LB',
             mode = 'lines',
             line = dict(color='firebrick', width=3,),
+            customdata = df_C['Lc [m]'],
             hovertemplate =
-            "Pn min LB: %{y:.2f} ton<extra></extra>",
+            "Pn min LB: %{y:.2f} ton<br>Lc = %{customdata:.2f} m<extra></extra>",
         )
     ),
     fig.add_trace(
@@ -334,24 +353,34 @@ def compression_plot(df_C, slenderness_TR, message, x_button = 'Lc [m]'):
         )
     ),
     
+    fig.data[0].update(xaxis='x2')
+
     fig.update_layout(
-        xaxis_title = xaxis_title,
-        yaxis_title = 'Pn [ton]',
+        xaxis2 = dict(title_text=xaxis2_title,
+                      fixedrange=True,
+                      showgrid=False,
+                      range=[0, df_C['Lc [m]'].max()],
+                     ),
+    )
+    
+    fig.update_layout(
+        xaxis = dict(title = xaxis_title, fixedrange=True, range=[0,x_data.max()],
+                     showspikes = True, spikemode="toaxis+across", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
+        yaxis = dict(title = 'Nominal Compressive Strength, Pn [ton]', fixedrange=True,
+                     showspikes = True, spikemode="toaxis", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
         hovermode = 'x',
         showlegend = True,
-        xaxis_showspikes = True,
-        yaxis_showspikes = True,
-        legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0),
-        margin = dict(t=0, b=0, l=0, r=40),
-        xaxis = dict(fixedrange=True),
-        yaxis = dict(fixedrange=True)
+        legend = dict(orientation="h", yanchor="bottom", y=1.25, xanchor="left", x=0.0),
+        margin = dict(b=0, l=0, r=40),
     )
     
     fig.add_annotation(
         text = message,
         font = dict(size=14, color="black"),
         xref = "paper", yref="paper", x=0.05, y=0.05, showarrow=False
-    )    
+    )
     
     return fig
     
@@ -403,13 +432,9 @@ def flexural_cal(E = E_default, Fy = Fy_default, Cb = 1.0, Mservice_factor = 0.5
         Mn_CFLB_list.append(Mn_CFLB)
         if Lb <= Lp:
             Mn_LTB_list.append(Mpx)
-            # if Lb == Lp:
-            #     df['Mp x [ton-m]'] = Mpx
         elif Lb > Lp and Lb <= Lr:
             Mrx = min( Mpx , Cb*(Mpx-(Mpx-0.7*Myx)*((Lb-Lp)/(Lr-Lp))) )
             Mn_LTB_list.append(Mrx)
-            # if Lb == Lr:
-            #     df['Mr x [ton-m]'] = Mrx
         elif Lb > Lr:
             Fcr = (Cb*np.pi**2*E / (Lb*100/rts)**2) * np.sqrt(1+0.078*J*c/(Sx*h0/10)*(Lb*100/rts)**2) # ksc
             Mn_LTB_list.append(min( Mpx , Fcr*Sx/100/1000 ))
@@ -435,13 +460,14 @@ def flexural_plot(df_f):
     Lrx = df['Lr [m]'][0]
     Mpx = df['Mp x [ton-m]'][0]
     Mrx = df['Mr x [ton-m]'][0]
+    
+    x_data = df_f['L']
 
-    # fig = go.Figure()
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['Mn_min'],
             name = 'Mn min',
             mode = 'lines',
@@ -452,7 +478,7 @@ def flexural_plot(df_f):
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['Mn_Y'],
             name = 'Mn Yielding',
             mode = 'lines',
@@ -463,7 +489,7 @@ def flexural_plot(df_f):
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['Mn_LTB'],
             name = 'Mn LTB',
             mode = 'lines',
@@ -488,7 +514,7 @@ def flexural_plot(df_f):
         
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = yy,
             name = 'Mn CFLB',
             mode = 'lines',
@@ -530,7 +556,7 @@ def flexural_plot(df_f):
     
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['L/120'],
             name = 'L/120',
             mode = 'lines',
@@ -542,7 +568,7 @@ def flexural_plot(df_f):
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['L/180'],
             name = 'L/180',
             mode = 'lines',
@@ -554,55 +580,52 @@ def flexural_plot(df_f):
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['L/240'],
             name = 'L/240',
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
-            hovertemplate =
-            "L/240: %{y:.2f} mm<extra></extra>",
+            hovertemplate = "L/240: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['L/360'],
             name = 'L/360',
             mode = 'lines',
             line = dict(color='#8688f8', width=1),
-            hovertemplate =
-            "L/360: %{y:.2f} mm<extra></extra>",
+            hovertemplate = "L/360: %{y:.2f} mm<extra></extra>",
             showlegend = False,
         ), secondary_y=True,
     ),
     fig.add_trace(
         go.Scatter(
-            x = df_f['L'],
+            x = x_data,
             y = df_f['d_max'],
             name = 'Deflection MAX',
             mode = 'lines',
             line = dict(color='#5c5eab', width=3),
-            hovertemplate =
-            "MAX: %{y:.2f} mm<extra></extra>",
+            hovertemplate = "MAX: %{y:.2f} mm<extra></extra>",
             showlegend = True,
         ), secondary_y=True,
     ),
-    
+        
     fig.update_layout(
-        xaxis_title = 'Lb [m]',
-        yaxis_title = 'Mn [ton-m]',
+        xaxis = dict(title = 'Unbraced Length, Lb [m]', fixedrange=True, range=[0,x_data.max()],
+                     showspikes = True, spikemode="toaxis", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
+        yaxis = dict(title = 'Nominal Flexural Strength, Mn [ton-m]', fixedrange=True,
+                     showspikes = True, spikemode="toaxis", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
         hovermode = 'x',
         showlegend = True,
-        xaxis_showspikes = True,
-        yaxis_showspikes = True,
         legend = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0),
         margin = dict(t=0, b=0, l=0, r=40),
-        xaxis = dict(fixedrange=True),
-        yaxis = dict(fixedrange=True),
         yaxis2 = dict(title_text='Deflection [mm]', fixedrange=True, tickmode="sync"),
-    ) 
-    
+    )
+
     return fig
 
 def combined_load_plot(Mminor_ratio = 0.0):
@@ -646,17 +669,18 @@ def combined_load_plot(Mminor_ratio = 0.0):
         )
     ),
     
-    
     fig.update_layout(
-        xaxis_title = 'Mrx / Mcx',
-        yaxis_title = 'Pr / Pc',
+        xaxis = dict(title = 'Mrx / Mcx', fixedrange=True, range=[0, 1],
+                     showspikes = True, spikemode="toaxis", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
+        yaxis = dict(title = 'Pr / Pc', fixedrange=True, range=[0, 1],
+                     showspikes = True, spikemode="toaxis", spikedash="dash", spikethickness=3, spikecolor='#868686',
+                    ),
         hovermode = 'x',
         showlegend = False,
         xaxis_showspikes = True,
         yaxis_showspikes = True,
-        margin = dict(t=0, b=0, l=0, r=40),
-        xaxis = dict(range=[0, 1], fixedrange=True),
-        yaxis = dict(range=[0, 1], fixedrange=True)
+        margin = dict(t=0, b=0, l=0, r=40),       
     )
     
     fig.add_annotation(
@@ -664,6 +688,7 @@ def combined_load_plot(Mminor_ratio = 0.0):
         font = dict(size=14, color="black"),
         xref = "paper", yref="paper", x=0.05, y=0.05, showarrow=False
     )
+    
     
     return fig
 
@@ -682,11 +707,13 @@ Fy_input = pn.widgets.TextInput(name='Fy [kg/cm2]', value=str(Fy_default), width
 section_select = pn.widgets.Select(name='Section', options=df_all.index.tolist(), value=section_default, width=210)
 reset_button = pn.widgets.Button(name='Reset E & Fy to Default Value', width=210)
 
-braced_xx = pn.widgets.Select(name='braced_xx', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, 'Continuous Bracing': 0.01})
-braced_yy = pn.widgets.Select(name='braced_yy', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, 'Continuous Bracing': 0.01})
-braced_zz = pn.widgets.Select(name='braced_zz', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, 'Continuous Bracing': 0.01})
+braced_minor = pn.widgets.Select(name='MINOR axis bracing', width=190,
+                              options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, '0.1L': 0.1})
+braced_major = pn.widgets.Select(name='MAJOR axis bracing', width=190,
+                              options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, '0.1L': 0.1})
+braced_torsion = pn.widgets.Select(name='Torsional bracing', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, '': 0.1})
+
 Cb = pn.widgets.FloatInput(name='Cb', start=1.0, step=0.05, value=1.0, width=285)
-x_button = pn.widgets.RadioButtonGroup(name='x-axis', options=['Lc [m]', 'Slenderness MIN'], align = 'center', width=570)
 
 Mservice_factor = pn.widgets.FloatSlider(name='M service / Mn MIN', start=0.0, end=1.0, step=0.01, value=0.5, width=285)
 
@@ -767,8 +794,8 @@ def update_compression(event):
         E = E_default
         Fy = Fy_default
     
-    df_C, slenderness_TR, message = compression_cal(E, Fy, braced_xx.value, braced_yy.value, braced_zz.value)
-    fig_compression = compression_plot(df_C, slenderness_TR, message, x_button.value)
+    df_C, slenderness_TR, message = compression_cal(E, Fy, braced_minor.value, braced_major.value, braced_torsion.value)
+    fig_compression = compression_plot(df_C, slenderness_TR, message)
     plotly_fig_compression.object = fig_compression
     
 def update_flexural(event):
@@ -804,10 +831,9 @@ Cb.param.watch(update_table, 'value')
 section_select.param.watch(update_compression, 'value')
 E_input.param.watch(update_compression, 'value')
 Fy_input.param.watch(update_compression, 'value')
-braced_xx.param.watch(update_compression, 'value')
-braced_yy.param.watch(update_compression, 'value')
-braced_zz.param.watch(update_compression, 'value')
-x_button.param.watch(update_compression, 'value')
+braced_minor.param.watch(update_compression, 'value')
+braced_major.param.watch(update_compression, 'value')
+braced_torsion.param.watch(update_compression, 'value')
 
 section_select.param.watch(update_flexural, 'value')
 E_input.param.watch(update_flexural, 'value')
@@ -872,8 +898,8 @@ content2 = [
             pn.Column(
                 '## Compressive Strength of Section',
                 plotly_fig_compression,
-                x_button,
-                pn.Row(braced_xx, braced_yy, braced_zz),
+                # x_button,
+                pn.Row(braced_minor, braced_major, braced_torsion),
             ),
             pn.Column(
                 '## Flexural Strength of Section (Major Axis)',
@@ -904,4 +930,3 @@ load_content2(content2)
 
 # template.show()
 template.servable()
-
