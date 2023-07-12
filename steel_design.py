@@ -112,10 +112,10 @@ def section_classification(E = E_default, Fy = Fy_default, section = section_def
     df['Compression: Web Classification'] = np.where(df['lambda_w'] >= df['c_lambda_rw'], 'Slender', 'NonSlender')
 
     # classification of flexural element
-    df['f_lambda_pf'] = round(0.38 * np.sqrt(E / Fy_default), decimal)
-    df['f_lambda_rf'] = round(1.00 * np.sqrt(E / Fy_default), decimal)
-    df['f_lambda_pw'] = round(3.76 * np.sqrt(E / Fy_default), decimal)
-    df['f_lambda_rw'] = round(5.70 * np.sqrt(E / Fy_default), decimal)
+    df['f_lambda_pf'] = round(0.38 * np.sqrt(E / Fy), decimal)
+    df['f_lambda_rf'] = round(1.00 * np.sqrt(E / Fy), decimal)
+    df['f_lambda_pw'] = round(3.76 * np.sqrt(E / Fy), decimal)
+    df['f_lambda_rw'] = round(5.70 * np.sqrt(E / Fy), decimal)
 
     df['Flexural: Flange Classification'] = np.where(df['lambda_f'] >= df['f_lambda_rf'], 'Slender',
                                                      np.where((df['f_lambda_rf'] > df['lambda_f']) &
