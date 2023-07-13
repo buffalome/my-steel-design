@@ -211,6 +211,7 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
     tw = df['tw [mm]'][0]
     tf = df['tf [mm]'][0]
     bf = df['bf [mm]'][0]
+    h = df['h [mm]'][0]
 
     web_classification = df['Compression: Web Classification'][0]
     c_lambda_rw = df['c_lambda_rw'][0]
@@ -256,9 +257,9 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
         ROW = lambda_w > c_lambda_rw*(Fy/df_C['Fcr_min [ksc]']).pow(0.5)
         Fel = Fy*(c2*c_lambda_rw/lambda_w)**0.5
         FF = (Fel/df_C.loc[ROW,'Fcr_min [ksc]']).pow(0.5)
-        de = d*(1-c1*FF)*FF
+        he = h*(1-c1*FF)*FF
 
-        df_C.loc[ROW,'A_LB [cm2]'] = df_C.loc[ROW,'A_LB [cm2]'] - (d - de) * tw / 100
+        df_C.loc[ROW,'A_LB [cm2]'] = df_C.loc[ROW,'A_LB [cm2]'] - (h - he) * tw / 100
 
     if flange_classification == 'Slender':
         ROW = lambda_f > c_lambda_rf*(Fy/df_C['Fcr_min [ksc]']).pow(0.5)
