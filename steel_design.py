@@ -255,7 +255,7 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
     df_C['A_LB [cm2]'] = A
     if web_classification == 'Slender':
         ROW = lambda_w > c_lambda_rw*(Fy/df_C['Fcr_min [ksc]']).pow(0.5)
-        Fel = Fy*(c2*c_lambda_rw/lambda_w)**0.5
+        Fel = Fy*(c2*c_lambda_rw/lambda_w)**2
         FF = (Fel/df_C.loc[ROW,'Fcr_min [ksc]']).pow(0.5)
         he = h*(1-c1*FF)*FF
 
@@ -263,7 +263,7 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
 
     if flange_classification == 'Slender':
         ROW = lambda_f > c_lambda_rf*(Fy/df_C['Fcr_min [ksc]']).pow(0.5)
-        Fel = Fy*(c2*c_lambda_rf/lambda_f)**0.5
+        Fel = Fy*(c2*c_lambda_rf/lambda_f)**2
         FF = (Fel/df_C.loc[ROW,'Fcr_min [ksc]']).pow(0.5)
         bfe = bf*(1-c1*FF)*FF
 
