@@ -174,7 +174,7 @@ def section_classification(E = E_default, Fy = Fy_default, section = section_def
         
 
 
-def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_major = 1.0, braced_torsion = 1.0):
+def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_major = 1.0, braced_torsion = 1.0, k_minor = 1.0, k_major = 1.0, k_torsion = 1.0):
     
     comp_data = ['Lc [m]',
                  'Fe_FB [ksc]', 'Fcr_FB [ksc]', 'Pn_FB [ton]',
@@ -219,20 +219,20 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
     c_lambda_rf = df['c_lambda_rf'][0]
 
     # EULER BUCKLING STRESS
-    slenderness_minor = braced_minor / ry
-    slenderness_major = braced_major / rx
+    slenderness_minor = k_minor * braced_minor / ry
+    slenderness_major = k_major * braced_major / rx
     
     if slenderness_major > slenderness_minor:
         message = 'Flexural Buckling around MAJOR axis'
-        braced = braced_major
+        braced = k_major * braced_major
         radius_of_gyration = rx
     else:
         message = 'Flexural Buckling around MINOR axis'
-        braced = braced_minor
+        braced = k_minor * braced_minor
         radius_of_gyration = ry
 
     df_C['Lc [m]'] = slenderness * radius_of_gyration / braced / 100
-    Lcz = df_C['Lc [m]'] * braced_torsion * 100
+    Lcz = df_C['Lc [m]'] * k_torsion * braced_torsion * 100
 
     # E3. FLEXURAL BUCKLING OF MEMBERS WITHOUT SLENDER ELEMENTS 
     df_C['Fe_FB [ksc]'] = (np.pi**2)*E/(slenderness**2)
@@ -714,6 +714,10 @@ braced_major = pn.widgets.Select(name='MAJOR axis bracing', width=190,
                               options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, '0.1L': 0.1})
 braced_torsion = pn.widgets.Select(name='Torsional bracing', width=190, options={'No Bracing': 1.0, '0.5L': 0.5, '1/3L': 1/3, '0.25L': 0.25, '': 0.1})
 
+k_minor = pn.widgets.FloatInput(name='MINOR axis K-factor', start=0.0, step=0.05, value=1.0, width=190)
+k_major = pn.widgets.FloatInput(name='MAJOR axis K-factor', start=0.0, step=0.05, value=1.0, width=190)
+k_torsion = pn.widgets.FloatInput(name='Torsional K-factor', start=0.0, step=0.05, value=1.0, width=190)
+
 Cb = pn.widgets.FloatInput(name='Cb', start=1.0, step=0.05, value=1.0, width=285)
 
 Mservice_factor = pn.widgets.FloatSlider(name='M service / Mn MIN', start=0.0, end=1.0, step=0.01, value=0.5, width=285)
@@ -795,7 +799,7 @@ def update_compression(event):
         E = E_default
         Fy = Fy_default
     
-    df_C, slenderness_TR, message = compression_cal(E, Fy, braced_minor.value, braced_major.value, braced_torsion.value)
+    df_C, slenderness_TR, message = compression_cal(E, Fy, braced_minor.value, braced_major.value, braced_torsion.value, k_minor.value, k_major.value, k_torsion.value)
     fig_compression = compression_plot(df_C, slenderness_TR, message)
     plotly_fig_compression.object = fig_compression
     
@@ -835,6 +839,9 @@ Fy_input.param.watch(update_compression, 'value')
 braced_minor.param.watch(update_compression, 'value')
 braced_major.param.watch(update_compression, 'value')
 braced_torsion.param.watch(update_compression, 'value')
+k_minor.param.watch(update_compression, 'value')
+k_major.param.watch(update_compression, 'value')
+k_torsion.param.watch(update_compression, 'value')
 
 section_select.param.watch(update_flexural, 'value')
 E_input.param.watch(update_flexural, 'value')
@@ -901,6 +908,7 @@ content2 = [
                 plotly_fig_compression,
                 # x_button,
                 pn.Row(braced_minor, braced_major, braced_torsion),
+                pn.Row(k_minor, k_major, k_torsion),
             ),
             pn.Column(
                 '## Flexural Strength of Section (Major Axis)',
