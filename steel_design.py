@@ -5,9 +5,6 @@ import pandas as pd
 import numpy as np
 pn.extension('plotly','katex','mathjax')
 
-import warnings
-warnings.filterwarnings('ignore')
-
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
