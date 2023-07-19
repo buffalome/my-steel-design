@@ -3,7 +3,10 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-pn.extension('plotly')
+pn.extension('plotly','katex','mathjax')
+
+import warnings
+warnings.filterwarnings('ignore')
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -12,11 +15,29 @@ from plotly.subplots import make_subplots
 df_all = pd.read_excel('Steel_Table_Python.xlsx')
 df_all.set_index('Section', inplace=True)
 
+import pint
+from pint import UnitRegistry
+u = UnitRegistry()
+u.auto_reduce_dimensions = True
+u.default_format = ".2f~P"
+Q_ = u.Quantity
+
+import pint_pandas
+pint_pandas.PintType.ureg.default_format = ".2f~P"
+pint_pandas.PintType.ureg = u
+
+# Create a DataFrame with sample data
+df_all_pint = pd.read_excel('Steel_Table_Python_pint.xlsx', header=[0, 1], index_col=[0])
+df_all_pint = df_all_pint.pint.quantify(level=-1)
+
 E_default = 2000000
 Fy_default = 2450
+G = 0.385*E_default
 c = 1 # eq F2-8a
 c1 = 0.22 # FOR LOCAL BUCKLING
 c2 = 1.49 # FOR LOCAL BUCKLING
+
+section_default = df_all.index[0]
 
 def section_classification_all(E = E_default, Fy = Fy_default, Cb = 1.0, decimal = 2):
     
@@ -91,8 +112,6 @@ def section_classification_all(E = E_default, Fy = Fy_default, Cb = 1.0, decimal
     data['Vn [ton]'] = round(0.6*Fy*data['d [mm]']*data['tw [mm]'] /100/1000, decimal)
     
     
-
-section_default = df_all.index[0]
 
 def section_classification(E = E_default, Fy = Fy_default, section = section_default, Cb = 1.0, decimal = 2):
     
@@ -268,7 +287,6 @@ def compression_cal(E = E_default, Fy = Fy_default, braced_minor = 1.0, braced_m
         bfe = bf*(1-c1*FF)*FF
 
         df_C.loc[ROW,'A_LB [cm2]'] = df_C.loc[ROW,'A_LB [cm2]'] - (bf - bfe) * tf / 100
-
 
     # NOMINAL AXIAL FORCE
     df_C['Pn_min [ton]'] = df_C['Fcr_min [ksc]'] * A /1000
@@ -736,6 +754,11 @@ steel_table = pn.widgets.DataFrame(data, height=680, width=1210, frozen_columns=
 
 link1 = pn.widgets.Button(name='Steel Table (TIS)', width=210)
 link2 = pn.widgets.Button(name='Section Analysis', width=210)
+link3 = pn.widgets.Button(name='Compressive Strength Calculation', width=210)
+
+member_length = pn.widgets.FloatInput(name='Member Length [m]', start=0.0, step=0.02, value=5, width=285)
+
+
 
 # Define callback functions
 def update_table(event):
@@ -827,6 +850,10 @@ def load_content1(event):
 def load_content2(event):
     template.main[0].objects = content2
     
+def load_content3(event):
+    template.main[0].objects = content3
+
+    
 # Register callback
 section_select.param.watch(update_table, 'value')
 E_input.param.watch(update_table, 'value')
@@ -855,6 +882,7 @@ reset_button.on_click(reset_values)
 
 link1.on_click(load_content1)
 link2.on_click(load_content2)
+link3.on_click(load_content3)
 
 E_input.param.watch(update_table_all, 'value')
 Fy_input.param.watch(update_table_all, 'value')
@@ -865,17 +893,17 @@ update_table(default_section)
 update_compression(default_section)
 update_flexural(default_section)
 
-
 # Instantiate the template with widgets displayed in the sidebar
 template = pn.template.FastListTemplate(
     title='Steel Design (AISC360-16)',
-    sidebar=[link1, link2, E_input, Fy_input, reset_button, section_select],
+    sidebar=[link1, link2, link3, E_input, Fy_input, reset_button, section_select],
     accent_base_color="#e85eff",
     header_background="#be5eff",
     theme='dark',
     sidebar_width = 230,
     meta_author = 'KJ'
 )
+
 # Append a layout to the main area, to demonstrate the list-like API
 page = pn.Column(sizing_mode='stretch_width')
 template.main.append(page)
@@ -906,7 +934,6 @@ content2 = [
             pn.Column(
                 '## Compressive Strength of Section',
                 plotly_fig_compression,
-                # x_button,
                 pn.Row(braced_minor, braced_major, braced_torsion),
                 pn.Row(k_minor, k_major, k_torsion),
             ),
@@ -934,7 +961,357 @@ content2 = [
 
 content1 = [pn.Column(steel_table, pn.pane.Markdown(r'$$C_b = 1.0$$'))]
 
+@pn.depends(section_select, E_input, Fy_input, member_length, braced_minor, braced_major, braced_torsion, k_minor, k_major, k_torsion, Cb)
+def latex(section_select, E_input, Fy_input, member_length, braced_minor, braced_major, braced_torsion, k_minor, k_major, k_torsion, Cb):
+    
+    df_u = df_all_pint.loc[df_all_pint.index==section_select]
+    
+    E = float(E_input) *u.kg/u.cm**2
+    Fy = float(Fy_input) *u.kg/u.cm**2
+    G = 0.385*E
+
+    L = float(member_length) *u.m
+    
+    ##########################################################################
+    # width-to-thickness ratio
+    df_u['lambda_f'] = df_u['0.5bf/tf']
+    df_u['lambda_w'] = df_u['h/tw']
+
+    # classification of compression element
+    df_u['c_lambda_rf'] = (0.56 * np.sqrt(E / Fy))
+    df_u['c_lambda_rw'] = (1.49 * np.sqrt(E / Fy))
+
+    df_u['Compression: Flange Classification'] = np.where(df_u['lambda_f'] >= df_u['c_lambda_rf'], 'Slender', 'NonSlender')
+    df_u['Compression: Web Classification'] = np.where(df_u['lambda_w'] >= df_u['c_lambda_rw'], 'Slender', 'NonSlender')
+
+    # classification of flexural element
+    df_u['f_lambda_pf'] = 0.38 * np.sqrt(E / Fy)
+    df_u['f_lambda_rf'] = 1.00 * np.sqrt(E / Fy)
+    df_u['f_lambda_pw'] = 3.76 * np.sqrt(E / Fy)
+    df_u['f_lambda_rw'] = 5.70 * np.sqrt(E / Fy)
+
+    df_u['Flexural: Flange Classification'] = np.where(df_u['lambda_f'] >= df_u['f_lambda_rf'], 'Slender',
+                                                     np.where((df_u['f_lambda_rf'] > df_u['lambda_f']) &
+                                                              (df_u['lambda_f'] >= df_u['f_lambda_pf']),
+                                                              'NonCompact', 'Compact'))
+    df_u['Flexural: Web Classification'] = np.where(df_u['lambda_w'] >= df_u['f_lambda_rw'], 'Slender',
+                                                  np.where((df_u['f_lambda_rw'] > df_u['lambda_w']) &
+                                                           (df_u['lambda_w'] >= df_u['f_lambda_pw']),
+                                                           'NonCompact', 'Compact'))
+
+    df_u['c_lambda_rf'] = df_u['c_lambda_rf'].astype('pint[dimensionless]')
+    df_u['c_lambda_rw'] = df_u['c_lambda_rw'].astype('pint[dimensionless]')
+    df_u['f_lambda_pf'] = df_u['f_lambda_pf'].astype('pint[dimensionless]')
+    df_u['f_lambda_rf'] = df_u['f_lambda_rf'].astype('pint[dimensionless]')
+    df_u['f_lambda_pw'] = df_u['f_lambda_pw'].astype('pint[dimensionless]')
+    df_u['f_lambda_rw'] = df_u['f_lambda_rw'].astype('pint[dimensionless]')
+
+    ry = df_u['ry']
+
+    df_u['Lp'] = (1.76*ry*np.sqrt(E/Fy)).pint.to('m')
+
+    J = df_u['J']
+    Sx = df_u['Sx']
+    Zx = df_u['Zx']
+    h0 = df_u['h0']
+    rts = df_u['rts']
+
+    aa = E/(0.7*Fy)
+    bb = J*c/(Sx*h0)
+    df_u['Lr'] = (1.95*rts*aa*(bb+((bb**2)+6.76/(aa**2))**0.5)**0.5).pint.to('m')
+
+    Myx = (Fy*Sx).pint.to('tonne*m')
+    Mpx = (Fy*Zx).pint.to('tonne*m')
+
+    df_u['My x'] = Myx
+    df_u['Mp x'] = Mpx
+
+    df_u['Mr x'] =  min((Cb*0.7*Myx).iloc[0].magnitude, Mpx.iloc[0].magnitude)
+    df_u['Mr x'] =  df_u['Mr x'].astype("pint[tonne*m]")
+
+    Sy = df_u['Sy']
+    Zy = df_u['Zy']
+
+    Myy = (Fy*Sy).pint.to('tonne*m')
+    Mpy = (Fy*Zy).pint.to('tonne*m')
+
+    df_u['My y'] = Myy
+    df_u['Mp y'] = Mpy
+
+    lambda_f = df_u['lambda_f']
+    f_lambda_pf = df_u['f_lambda_pf']
+    f_lambda_rf = df_u['f_lambda_rf']
+    bf = df_u['bf']
+    tf = df_u['tf']
+
+    if df_u['Flexural: Flange Classification'][0] == 'Compact':
+        df_u['Mn_minor'] =  min((1.6*Myy).iloc[0].magnitude, Mpy.iloc[0].magnitude)
+        df_u['Mn_minor'] =  df_u['Mn_minor'].astype('pint[tonne*m]')
+    elif df_u['Flexural: Flange Classification'][0] == 'NonCompact':
+        df_u['Mn_minor'] = Mpy - (Mpy-0.7*Myy)*((lambda_f-f_lambda_pf)/(f_lambda_rf-f_lambda_pf))
+    elif df_u['Flexural: Flange Classification'][0] == 'Slender':
+        df_u['Mn_minor'] = ((0.69*E/((0.5*bf/tf)**2))*Sy).pint.to('tonne*m')
+
+    df_u['2.24 sqrt(E/Fy)'] = 2.24*np.sqrt(E/Fy)
+    df_u['2.24 sqrt(E/Fy)'] = df_u['2.24 sqrt(E/Fy)'].astype('pint[dimensionless]')
+    df_u['Vn'] = (0.6*Fy*df_u['d']*df_u['tw']).pint.to('tonne')
+    
+    ##########################################################################
+    bf = df_u['bf'][0]
+    tf = df_u['tf'][0]
+    lambda_f = df_u['lambda_f'][0]
+    h = df_u['h'][0]
+    tw = df_u['tw'][0]
+    lambda_w = df_u['lambda_w'][0]
+    c_lambda_rf = df_u['c_lambda_rf'][0]
+    c_lambda_rw = df_u['c_lambda_rw'][0]
+    rx = df_u['rx'][0]
+    ry = df_u['ry'][0]
+    Cw = df_u['Cw'][0]
+    J = df_u['J'][0]
+    Ix = df_u['Ix'][0]
+    Iy = df_u['Iy'][0]
+    Ag = df_u['A'][0]
+    web_classification = df_u['Compression: Web Classification'][0]
+    flange_classification = df_u['Compression: Flange Classification'][0]
+
+    Lcx = k_minor*braced_minor*L
+    LcxRy = Lcx/ry
+    Lcy = k_major*braced_major*L
+    LcyRx = Lcy/rx
+    KLR = max(LcxRy,LcyRx)
+    KLR_limit = round(4.71*np.sqrt(E/Fy), 2)
+    Lcz = k_torsion*braced_torsion*L
+
+    Fey = round((np.pi**2*E)/(LcxRy**2), 2)
+    Fex = round((np.pi**2*E)/(LcyRx**2), 2)
+    Fez = round(((np.pi**2*E*Cw) / (Lcz**2) + G*J) * (1/(Ix+Iy)), 2)
+    Fe = min(Fex, Fey, Fez)
+
+    def slender_element_check(lam, lam_r):
+        if lam > lam_r:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \lambda > \lambda_r, \quad \text{Slender element}$"),
+        elif lam <= lam_r:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \lambda < \lambda_r, \quad \text{Non-Slender element}$"),
+
+        return A1[0]
+
+    flange_check = slender_element_check(lambda_f, c_lambda_rf)
+    web_check = slender_element_check(lambda_w, c_lambda_rw)
+
+    def slenderness_ratio_check(slenderness):
+        if slenderness > 200:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \frac{L_{c}}{r} = \max{(\frac{L_{cx}}{r_{y}}, \frac{L_{cy}}{r_{x}})} = %s > 200, \quad \text{FAIL} $"%(slenderness)),
+        elif slenderness <= 200:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \frac{L_{c}}{r} = \max{(\frac{L_{cx}}{r_{y}}, \frac{L_{cy}}{r_{x}})} = %s \le 200, \quad \text{OK} $"%(slenderness)),
+
+        return A1[0]
+
+    slenderness_check = slenderness_ratio_check(KLR)
+
+    def critical_stress(Fe):
+        Fe = Fe
+        FyFe = round(Fy/Fe, 2)
+        if FyFe <= 2.25:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \frac{F_{y}}{F_{e}} = \frac{%s}{%s} = %s \quad \quad \le \quad \quad 2.25$"%(f'{Fy:~L}', f'{Fe:~L}', f'{FyFe:~L}')),
+            Fcr = round((0.658**FyFe)*Fy, 2)
+            A2 = pn.pane.LaTeX(r"$\quad\quad \text{Critical buckling stress, } F_{c r}=\left(0.658^{\frac{F_{y}}{F_{e}}}\right) F_{y} =  %s$"%(f'{Fcr:~L}')),
+        elif FyFe > 2.25:
+            A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \frac{F_{y}}{F_{e}} = \frac{%s}{%s} = %s \quad \quad > \quad \quad 2.25$"%(f'{Fy:~L}', f'{Fe:~L}', f'{FyFe:~L}')),
+            Fcr = round(0.877*Fe, 2)
+            A2 = pn.pane.LaTeX(r"$\quad\quad \text{Critical buckling stress, } F_{c r}=0.877 F_{e} =  %s$"%(f'{Fcr:~L}')),
+
+        return pn.Column(A1[0], A2[0]), Fcr
+
+    AAA, Fcr = critical_stress(Fe)
+
+
+    def local_buckling(Fcr):
+        if web_classification == 'Slender' and flange_classification == 'NonSlender':
+            limit = round(c_lambda_rw*(Fy/Fcr)**(0.5),2)
+            if lambda_w > limit:
+                Fel = round(Fy*(c2*c_lambda_rw/lambda_w)**2,2)
+                FF = (Fel/Fcr)**(0.5)
+                he = round(h*(1-c1*FF)*FF,2)
+                Ae = round(Ag - (h - he) * tw,2)
+
+                A0 = pn.pane.LaTeX(r"$\quad \text{Determine effective web height for slender web}$")
+
+                A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \lambda_w = %s \quad\quad > \quad\quad \lambda_{rw}\sqrt{\frac{F_{y}}{F_{cr}}} = %s \sqrt{\frac{%s}{%s}} = %s$"%(lambda_w, c_lambda_rw, f'{Fe:~L}', f'{Fcr:~L}', limit))
+
+                A2 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Elastic local buckling stress, } F_{e l} &= \left(c_2 \frac{\lambda_{rw}}{\lambda_w}\right)^2 F_y\\
+                    \quad\quad &= \left(%s \cdot \frac{%s}{%s}\right)^2 \cdot %s\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(c2, c_lambda_rw, lambda_w, f'{Fy:~L}', f'{Fel:~L}')),
+
+                A3 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Effective web height, } h_{e} &= h\left(1-c_1 \sqrt{\frac{F_{e l}}{F_{c r}}}\right) \sqrt{\frac{F_{e l}}{F_{c r}}}\\
+                    \quad\quad &= %s\left(1-%s \sqrt{\frac{%s}{%s}}\right) \sqrt{\frac{%s}{%s}}\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}',he)),
+
+                A4 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Effective area, } A_{e} &= A_{g} - \left(h - h_{e}\right) t_{w}\\
+                    \quad\quad &= %s - \left(%s - %s\right) %s\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(f'{Ag:~L}', f'{h:~L}', f'{he:~L}', f'{tw:~L}', f'{Ae:~L}')),
+
+                AAA = pn.Column(A0[0], A1[0], A2[0], A3[0], A4[0])
+
+            else:
+                Ae = Ag
+                A0 = pn.pane.LaTeX(r"$\quad \text{Determine effective web height for slender web}$")
+
+                A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \lambda_w = %s \quad\quad \le \quad\quad \lambda_{rw}\sqrt{\frac{F_{y}}{F_{cr}}} = %s \sqrt{\frac{%s}{%s}} = %s$"%(lambda_w, c_lambda_rw, f'{Fe:~L}', f'{Fcr:~L}', limit))
+
+                A2 = pn.pane.LaTeX(r"$\quad\quad \text{Effective web height, } h_{e} = h $")
+                A3 = pn.pane.LaTeX(r"$\quad\quad \text{Effective Area, } A_{e} = A_{g} = %s $"%(f'{Ae:~L}'))
+
+                AAA = pn.Column(A0[0], A1[0], A2[0], A3[0])
+
+        elif web_classification == 'NonSlender' and flange_classification == 'Slender':
+            limit = round(c_lambda_rf*(Fy/Fcr)**(0.5),2)
+            if lambda_f > limit:
+                Fel = round(Fy*(c2*c_lambda_rf/lambda_f)**2,2)
+                FF = (Fel/Fcr)**(0.5)
+                bfe = round(bf*(1-c1*FF)*FF,2)
+                Ae = round(Ag - (bf - bfe) * tf,2)
+
+                A0 = pn.pane.LaTeX(r"$\quad \text{Determine effective flange width for slender flange}$")
+
+                A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \lambda_f = %s \quad\quad > \quad\quad \lambda_{rf}\sqrt{\frac{F_{y}}{F_{cr}}} = %s \sqrt{\frac{%s}{%s}} = %s$"%(lambda_f, c_lambda_rf, f'{Fe:~L}', f'{Fcr:~L}', limit))
+
+                A2 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Elastic local buckling stress, } F_{e l} &= \left(c_2 \frac{\lambda_{rf}}{\lambda_f}\right)^2 F_y\\
+                    \quad\quad &= \left(%s \cdot \frac{%s}{%s}\right)^2 \cdot %s\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(c2, c_lambda_rf, lambda_f, f'{Fy:~L}', f'{Fel:~L}')),
+
+                A3 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Effective flange width, } h_{e} &= h\left(1-c_1 \sqrt{\frac{F_{e l}}{F_{c r}}}\right) \sqrt{\frac{F_{e l}}{F_{c r}}}\\
+                    \quad\quad &= %s\left(1-%s \sqrt{\frac{%s}{%s}}\right) \sqrt{\frac{%s}{%s}}\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}',he)),
+
+                A4 = pn.pane.LaTeX(r"""
+                $\begin{aligned}
+                    \quad\quad \text{Effective area, } A_{e} &= A_{g} - \left(b_{f} - b_{fe}\right) t_{f}\\
+                    \quad\quad &= %s - \left(%s - %s\right) %s\\
+                    \quad\quad &= %s \\
+                \end{aligned}
+                $"""%(f'{Ag:~L}', f'{bf:~L}', f'{bfe:~L}', f'{tf:~L}', f'{Ae:~L}')),
+
+                AAA = pn.Column(A0[0], A1[0], A2[0], A3[0], A4[0])
+                
+            else:
+                Ae = Ag
+                A0 = pn.pane.LaTeX(r"$\quad \text{Determine effective flange width for slender flange}$")
+
+                A1 = pn.pane.LaTeX(r"$\quad\quad \text{For } \lambda_f = %s \quad\quad \le \quad\quad \lambda_{rf}\sqrt{\frac{F_{y}}{F_{cr}}} = %s \sqrt{\frac{%s}{%s}} = %s$"%(lambda_f, c_lambda_rf, f'{Fe:~L}', f'{Fcr:~L}', limit))
+
+                A2 = pn.pane.LaTeX(r"$\quad\quad \text{Effective flange width, } b_{fe} = bf $")
+                A3 = pn.pane.LaTeX(r"$\quad\quad \text{Effective Area, } A_{e} = A_{g} = %s $"%(f'{Ae:~L}'))
+
+                AAA = pn.Column(A0[0], A1[0], A2[0], A3[0])
+        
+        elif web_classification == 'NonSlender' and flange_classification == 'NonSlender':
+            AAA = pn.Column(pn.pane.LaTeX(r"$\quad \text{The calculation is not yet support sections that have slender web and slender flange.}$"))
+            Ae = Ag
+        else:
+            AAA = pn.Column(pn.pane.LaTeX(r"$\quad \text{Local Buckling is NOT applicable.}$"))
+            Ae = Ag
+
+        return AAA, Ae
+
+    BBB, Ae = local_buckling(Fcr)
+
+    Pn = round(Fcr*Ae,2)
+    Pn_t = round((Fcr*Ae).to('tonne'),2)
+    
+    ##########################################################################
+    # Create the dashboard layout
+    dashboard = pn.Column('# Section Capacity',
+        pn.pane.Markdown('### Data'),
+        pn.pane.LaTeX(r"$\quad \text{Member Length, } L = %s$"%(f'{L:~L}')),
+        pn.pane.LaTeX(r"$\quad \text{Young's Modulus, } E = %s$"%(f'{E:~L}')),
+        pn.pane.LaTeX(r"$\quad \text{Yield Stress, } F_{y} = %s$"%(f'{Fy:~L}')),
+        pn.pane.LaTeX(r"$\quad \text{Effective length factor minor axis } K_{x} = %s, \quad \text{Laterally braced minor axis at } = %s L $"%(k_minor, braced_minor)),
+        pn.pane.LaTeX(r"$\quad \text{Effective length factor major axis } K_{y} = %s, \quad \text{Laterally braced major axis at } = %s L $"%(k_major, braced_major)),
+        pn.pane.LaTeX(r"$\quad \text{Effective length factor torsion } K_{z} = %s, \quad \quad \ \ \text{Torsion braced at } = %s L $"%(k_torsion, braced_torsion)),
+
+        pn.pane.Markdown('### E1. GENERAL PROVISIONS'),
+        pn.pane.LaTeX(r"$\phi=0.90 \quad, \quad\quad \Omega=1.67$"),
+
+        pn.pane.Markdown('### B4.1 Classification of Sections for Local Buckling'),                     
+        pn.pane.LaTeX(r"$\text{Unstiffened Elements, Flange:}$"),
+        pn.pane.LaTeX(r"$\quad \lambda_{f} = \frac{0.5 b_{f}}{t_{f}} = \frac{0.5 \cdot %s}{%s} = %s$"%(f'{bf:~L}',f'{tf:~L}',lambda_f)),
+        pn.pane.LaTeX(r"$\quad \lambda_{rf} = 0.56 \sqrt{\frac{E}{F_y}} = 0.56 \sqrt{\frac{%s}{%s}} = %s$"%(f'{E:~L}',f'{Fy:~L}',c_lambda_rf)),
+        flange_check,
+        pn.pane.LaTeX(r"$\text{Stiffened Elements, Web:}$"),
+        pn.pane.LaTeX(r"$\quad \lambda_{w} = \frac{h}{t_{w}} = \frac{%s}{%s} = %s$"%(f'{h:~L}',f'{tw:~L}',lambda_w)),
+        pn.pane.LaTeX(r"$\quad \lambda_{rw} = 1.49 \sqrt{\frac{E}{F_y}} = 1.49 \sqrt{\frac{%s}{%s}} = %s$"%(f'{E:~L}',f'{Fy:~L}',c_lambda_rw)),
+        web_check,
+
+        pn.pane.Markdown('### E2. EFFECTIVE LENGTH'),                     
+        pn.pane.LaTeX(r"$\quad \text{Effective length minor axis } L_{cx} = K_{x} L_{x} = %s, \quad \text{Slenderness ratio } \frac{L_{cx}}{r_{y}} = \frac{K_{x} L_{x}}{r_{y}} = \frac{%s}{%s} = %s$"%(f'{Lcx:~L}', f'{Lcx:~L}', f'{ry:~L}', LcxRy)),
+        pn.pane.LaTeX(r"$\quad \text{Effective length major axis } L_{cy} = K_{y} L_{y} = %s, \quad \text{Slenderness ratio } \frac{L_{cy}}{r_{x}} = \frac{K_{y} L_{y}}{r_{x}} = \frac{%s}{%s} = %s$"%(f'{Lcy:~L}', f'{Lcy:~L}', f'{rx:~L}', LcyRx)),
+        slenderness_check,
+
+        pn.pane.Markdown('### E3. FLEXURAL BUCKLING OF MEMBERS WITHOUT SLENDER ELEMENTS'),
+        pn.pane.LaTeX(r"$\quad \text{Flexural buckling stress about minor axis: }$"),
+        pn.pane.LaTeX(r"$\quad\quad F_{e y} = \frac{\pi^2 E}{\left(L_{cx} / r_{y}\right)^2} = \frac{\pi^2 \cdot %s}{\left(%s \right)^2}= %s$"%(f'{E:~L}', LcxRy, f'{Fey:~L}')),
+        pn.pane.LaTeX(r"$\quad \text{Flexural buckling stress about major axis: }$"),
+        pn.pane.LaTeX(r"$\quad\quad F_{e x} = \frac{\pi^2 E}{\left(L_{cy} / r_{x}\right)^2} = \frac{\pi^2 \cdot %s}{\left(%s \right)^2}= %s$"%(f'{E:~L}', LcyRx, f'{Fex:~L}')),
+
+        pn.pane.Markdown('### E4. TORSIONAL AND FLEXURAL-TORSIONAL BUCKLING OF SINGLE ANGLES AND MEMBERS WITHOUT SLENDER ELEMENTS'),
+        pn.pane.LaTeX(r'$\quad \text{For doubly symmetric members twisting about the shear center,}$'),
+        pn.pane.LaTeX(r"$\quad \text{Torsional or flexural-torsional buckling stress: }$"),
+        pn.pane.LaTeX(r"""
+        $\begin{aligned}
+            \quad\quad F_{e z} &= \left(\frac{\pi^2 E C_w}{L_{c z}^2}+G J\right) \frac{1}{I_x+I_y}\\
+            \quad\quad &= \left(\frac{\pi^2 \cdot %s \cdot %s}{%s^2} + %s \cdot %s\right) \frac{1}{%s + %s}\\
+            \quad\quad &= %s \\
+        \end{aligned}
+        $"""%(f'{E:~L}', f'{Cw:~L}', f'{Lcz:~L}', f'{G:~L}', f'{J:~L}', f'{Ix:~L}', f'{Iy:~L}', f'{Fez:~L}')),
+
+        pn.pane.Markdown('### CRITICAL BUCKLING STRESS'),
+        pn.pane.LaTeX(r'$\quad \text{The critical buckling stress for the member could be controlled by flexural buckling (E3) about either the } x-x \text{ axis or } y-y \text{ axis, } F_{e x} \text{ or } F_{e y} \text{ , respectively}$'),
+        pn.pane.LaTeX(r'$\quad \text{or by torsional or flexural-torsional buckling (E4), } F_{e z} \text{.}$'),
+        pn.pane.LaTeX(r'$\quad \text{Therefore, } F_{e} = \min{(F_{e y}, F_{e x}, F_{e z})} = \min{(%s, %s, %s)} = %s$'%(f'{Fey:~L}', f'{Fex:~L}', f'{Fez:~L}', f'{Fe:~L}')),
+        AAA,
+
+        pn.pane.Markdown('### E7. MEMBERS WITH SLENDER ELEMENTS'),
+        BBB,
+
+        pn.pane.Markdown('### NOMINAL COMPRESSIVE STRENGTH'),
+        pn.pane.LaTeX(r"$\quad \text{Nominal Compressive Strentgth, } P_{n} = F_{cr} A_{e} = %s \cdot %s = %s = %s$"%(f'{Fcr:~L}', f'{Ae:~L}',f'{Pn:~L}',f'{Pn_t:~L}')),
+
+    )
+
+    ##########################################################################
+
+    return dashboard
+
+content3 = [pn.Column('#Inputs',
+                     member_length,
+                     pn.Row(braced_minor, braced_major, braced_torsion),
+                     pn.Row(k_minor, k_major, k_torsion),
+                     latex,
+                    )]
+
 load_content1(content1)
+load_content3([content3])
 load_content2(content2)
 
 # template.show()
