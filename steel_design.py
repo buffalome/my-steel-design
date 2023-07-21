@@ -1222,7 +1222,7 @@ def latex(section_select, E_input, Fy_input, member_length, braced_minor, braced
 
                 AAA = pn.Column(A0[0], A1[0], A2[0], A3[0])
         
-        elif web_classification == 'NonSlender' and flange_classification == 'NonSlender':
+        elif web_classification == 'Slender' and flange_classification == 'Slender':
             AAA = pn.Column(pn.pane.LaTeX(r"$\quad \text{The calculation is not yet support sections that have slender web and slender flange.}$"))
             Ae = Ag
         else:
