@@ -753,7 +753,7 @@ link1 = pn.widgets.Button(name='Steel Table (TIS)', width=210)
 link2 = pn.widgets.Button(name='Section Analysis', width=210)
 link3 = pn.widgets.Button(name='Compressive Strength Calculation', width=210)
 
-member_length = pn.widgets.FloatInput(name='Member Length [m]', start=0.0, step=0.02, value=5, width=285)
+member_length = pn.widgets.FloatInput(name='Member Length [m]', start=0.0, step=0.02, value=2.0, width=285)
 
 
 
@@ -1150,7 +1150,7 @@ def latex(section_select, E_input, Fy_input, member_length, braced_minor, braced
                     \quad\quad &= %s\left(1-%s \sqrt{\frac{%s}{%s}}\right) \sqrt{\frac{%s}{%s}}\\
                     \quad\quad &= %s \\
                 \end{aligned}
-                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}',he)),
+                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}', f'{he:~L}')),
 
                 A4 = pn.pane.LaTeX(r"""
                 $\begin{aligned}
@@ -1199,7 +1199,7 @@ def latex(section_select, E_input, Fy_input, member_length, braced_minor, braced
                     \quad\quad &= %s\left(1-%s \sqrt{\frac{%s}{%s}}\right) \sqrt{\frac{%s}{%s}}\\
                     \quad\quad &= %s \\
                 \end{aligned}
-                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}',he)),
+                $"""%(f'{bf:~L}', c1, f'{Fel:~L}', f'{Fcr:~L}', f'{Fel:~L}', f'{Fcr:~L}', f'{bfe:~L}')),
 
                 A4 = pn.pane.LaTeX(r"""
                 $\begin{aligned}
